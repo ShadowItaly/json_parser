@@ -17,7 +17,7 @@ jobs:
       shell: bash
       env:
         CC: gcc-9
-        CXX: gcc-9
+        CXX: g++-9
       run:  |
             mkdir build
             cd build
@@ -29,18 +29,18 @@ jobs:
       shell: bash
       env:
         CC: gcc-9
-        CXX: gcc-9
+        CXX: g++-9
       run:  |
             cd build
             export PATH=$PATH:/home/runner/.local/bin
             conan config init
             conan install .. --build=missing -s compiler.libcxx=libstdc++11
 
-    - name: Build clas-digital
+    - name: Build json_parser 
       shell: bash
       env:
         CC: gcc-9
-        CXX: gcc-9
+        CXX: g++-9
       run:  |
             cd build
             cmake .. -DCMAKE_BUILD_TYPE=$BUILD_TYPE
@@ -61,7 +61,7 @@ jobs:
       shell: bash
       env:
         CC: clang-9
-        CXX: clang-9
+        CXX: clang++-9
       run:  |
             mkdir build
             cd build
@@ -73,18 +73,18 @@ jobs:
       shell: bash
       env:
         CC: clang-9
-        CXX: clang-9
+        CXX: clang++-9
       run:  |
             cd build
             export PATH=$PATH:/home/runner/.local/bin
             conan config init
             conan install .. --build=missing
 
-    - name: Build clas-digital
+    - name: Build json_parser 
       shell: bash
       env:
         CC: clang-9
-        CXX: clang-9
+        CXX: clang++-9
       run:  |
             cd build
             cmake .. -DCMAKE_BUILD_TYPE=$BUILD_TYPE
@@ -118,7 +118,7 @@ jobs:
             conan config init
             conan install .. --build=missing
 
-    - name: Build clas-digital on ${{ matrix.os }}
+    - name: Build json_parser on ${{ matrix.os }}
       shell: bash
       run:  |
             cd build
@@ -154,7 +154,7 @@ jobs:
             conan config init
             conan install .. --build=missing
 
-    - name: Build clas-digital on ${{ matrix.os }}
+    - name: Build json_parser on ${{ matrix.os }}
       shell: bash
       run:  |
             cd build

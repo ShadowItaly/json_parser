@@ -1,0 +1,167 @@
+name: Continous Integration
+
+on: [push]
+
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  build_ubuntu_gcc:
+    runs-on: ubuntu-latest
+    name: Build on Ubuntu 20 with gcc-9
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install Conan
+      shell: bash
+      env:
+        CC: gcc-9
+        CXX: gcc-9
+      run:  |
+            mkdir build
+            cd build
+            pip install wheel
+            pip install setuptools
+            pip install conan
+
+    - name: Install Dependencies
+      shell: bash
+      env:
+        CC: gcc-9
+        CXX: gcc-9
+      run:  |
+            cd build
+            export PATH=$PATH:/home/runner/.local/bin
+            conan config init
+            conan install .. --build=missing -s compiler.libcxx=libstdc++11
+
+    - name: Build clas-digital
+      shell: bash
+      env:
+        CC: gcc-9
+        CXX: gcc-9
+      run:  |
+            cd build
+            cmake .. -DCMAKE_BUILD_TYPE=$BUILD_TYPE
+            cmake --build . --config $BUILD_TYPE
+
+    - name: Do tests
+      run:  |
+            cd build
+            bin/tests.o
+  
+  build_ubuntu_clang:
+    runs-on: ubuntu-latest
+    name: Build on Ubuntu 20 with clang-9
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install Conan
+      shell: bash
+      env:
+        CC: clang-9
+        CXX: clang-9
+      run:  |
+            mkdir build
+            cd build
+            pip install wheel
+            pip install setuptools
+            pip install conan
+
+    - name: Install Dependencies
+      shell: bash
+      env:
+        CC: clang-9
+        CXX: clang-9
+      run:  |
+            cd build
+            export PATH=$PATH:/home/runner/.local/bin
+            conan config init
+            conan install .. --build=missing
+
+    - name: Build clas-digital
+      shell: bash
+      env:
+        CC: clang-9
+        CXX: clang-9
+      run:  |
+            cd build
+            cmake .. -DCMAKE_BUILD_TYPE=$BUILD_TYPE
+            cmake --build . --config $BUILD_TYPE
+
+    - name: Do tests
+      run:  |
+            cd build
+            bin/tests.o
+
+  build_mac:
+    runs-on: macos-latest
+    name: Build on MacOS 10.04
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install Conan
+      shell: bash
+      run:  |
+            mkdir build
+            cd build
+            pip install wheel
+            pip install setuptools
+            pip install conan
+
+    - name: Install Dependencies
+      shell: bash
+      run:  |
+            cd build
+            export PATH=$PATH:/home/runner/.local/bin
+            conan config init
+            conan install .. --build=missing
+
+    - name: Build clas-digital on ${{ matrix.os }}
+      shell: bash
+      run:  |
+            cd build
+            cmake .. -DCMAKE_BUILD_TYPE=$BUILD_TYPE
+            cmake --build . --config $BUILD_TYPE
+
+    - name: Do tests on ${{ matrix.os }}
+      run:  |
+            cd build
+            bin/tests.o
+
+
+  build_windows:
+    runs-on: windows-latest
+    name: Build on Windows Server
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install Conan
+      shell: bash
+      run:  |
+            mkdir build
+            cd build
+            pip install wheel
+            pip install setuptools
+            pip install conan
+
+    - name: Install Dependencies
+      shell: bash
+      run:  |
+            cd build
+            export PATH=$PATH:/home/runner/.local/bin
+            conan config init
+            conan install .. --build=missing
+
+    - name: Build clas-digital on ${{ matrix.os }}
+      shell: bash
+      run:  |
+            cd build
+            cmake .. -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_WINDOWS_EXPORT_ALL_SYMBOLS=TRUE -DBUILD_SHARED_LIBS=TRUE
+            cmake --build . --config $BUILD_TYPE
+
+    - name: Do tests on ${{ matrix.os }}
+      run:  |
+            cd build
+            bin/tests.o

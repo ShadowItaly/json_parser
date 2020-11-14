@@ -1,4 +1,5 @@
 # json_parser
+![Continous Integration](https://github.com/ShadowItaly/json_parser/workflows/Continous%20Integration/badge.svg)
 A c++ implementation of a throw free json_parser.
 
 ## Design goals

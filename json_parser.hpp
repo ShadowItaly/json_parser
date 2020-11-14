@@ -4,6 +4,9 @@
 #include <string>
 #include <unordered_map>
 #include <functional>
+/**
+ * @author Alexander Leonhardt.
+ */
 
 /**
  * @brief Describes the JsonTypes that are possible at the moment
@@ -909,9 +912,10 @@ class JsonBase {
     /**
      * @brief Executes the given function if the type is JsonType::string
      *
-     * @param func
+     * @param func Call the function with the string inside if the object is of
+     * type string
      *
-     * @return 
+     * @return Returns a reference to itself for function chaining
      */
     JsonBase& map_string(std::function<void(std::string&)> func) {
       std::string tmp = std::move(interface_->to_string(last_error_));
@@ -920,6 +924,13 @@ class JsonBase {
       return *this;
     }
 
+    /**
+     * @brief Executes the given function if the type is JsonType::int
+     *
+     * @param func The function to execute when the type is int
+     *
+     * @return Returns a reference to itself for function chaining
+     */
     JsonBase& map_int(std::function<void(int)> func) {
       int tmp = interface_->to_int(last_error_);
       if (last_error_ == JsonError::ok)
@@ -927,6 +938,13 @@ class JsonBase {
       return *this;
     }
 
+    /**
+     * @brief Executes the given function if the type is JsonType::bool
+     *
+     * @param func The function to execute when the type fits
+     *
+     * @return Returns a reference to the instance for function chaining
+     */
     JsonBase& map_bool(std::function<void(bool)> func) {
       bool tmp = interface_->to_bool(last_error_);
       if (last_error_ == JsonError::ok)
@@ -934,6 +952,14 @@ class JsonBase {
       return *this;
     }
 
+    /**
+     * @brief Calls the given function for every object in the array if the
+     * instance is an object
+     *
+     * @param func The function to execute on every member of the array
+     *
+     * @return Returns a reference to the instance for function chaining
+     */
     JsonBase &map_array(std::function<void(JsonBase&)> func) {
       for (int i = 0; i < interface_->size(); i++) {
         JsonBase *val = interface_->get(i,last_error_);
@@ -945,23 +971,47 @@ class JsonBase {
       }
       return *this;
     }
-  
-    JsonBase &map_object(std::function<void(const std::string&,JsonBase&)> func) {
-      if (interface_->type() == JsonType::object && last_error_ == JsonError::ok) {
-        auto obj = (JsonImplObject*)interface_;
-        obj->map_for_each(func);
-      }
-      else
-        last_error_ = JsonError::not_implemented;
-      return *this;
+
+/**
+ * @brief Calls the given function on every pair (key,value) in the json object
+ *
+ * @param func The function to execute on a value pair.
+ *
+ * @return Returns a reference to itself for easier function chaining
+ */
+JsonBase &map_object(std::function<void(const std::string&,JsonBase)> func) {
+    if (interface_->type() == JsonType::object && last_error_ == JsonError::ok) {
+    auto obj = (JsonImplObject*)interface_;
+    obj->map_for_each(func);
+    }
+    else
+    last_error_ = JsonError::not_implemented;
+    return *this;
     }
 
+    /**
+     * @brief Call the given function if no error occured while accessing the
+     * array
+     *
+     * @param func The function to execute.
+     *
+     * @return Returns a reference to itself for easier function chaining
+     */
     JsonBase &map(std::function<void(void)> func) {
-      if(!has_error())
-        func();
+    if(!has_error())
+    func();
     }
 
 
+    /**
+      * @brief Returns the JsonObject at the given index. This function only
+      * works if the underlying type is JsonType::array.
+      *
+      * @param index The index to return the object from.
+      *
+      * @return Returns on success the given json object or an instance of this
+      * class with an error code set.
+    */
     JsonBase &get(int index) {
       auto ret = interface_->get(index,last_error_);
       if (last_error_!=JsonError::ok)
@@ -969,10 +1019,30 @@ class JsonBase {
       return *ret;
     }
 
+    /**
+      * @brief Returns the json object associated with the given key, if the
+      * object does not exist or the key does not exist returns this instance
+      * and sets an error code.
+      *
+      * @param x The key to search for in the json object.
+      *
+      * @return Either the found JsonBase or this instance depending on the
+      * operation outcome.
+      */
     JsonBase &get(const std::string &&x) {
       return get(x);
     }
 
+    /**
+      * @brief Returns the json object associated with the given key, if the
+      * object does not exist or the key does not exist returns this instance
+      * and sets an error code.
+      *
+      * @param x The key to search for in the json object.
+      *
+      * @return Either the found JsonBase or this instance depending on the
+      * operation outcome.
+      */
     JsonBase &get(const std::string &x) {
       auto ret = interface_->get(x,last_error_);
       if (last_error_==JsonError::ok)
@@ -980,6 +1050,16 @@ class JsonBase {
       return *this;
     }
 
+/**
+ * @brief Tries to insert a new (key,value) pair into an json object
+ *
+ * @tparam T The type of the inserted value
+ * @param x The key to insert into the json object.
+ * @param t The value to insert into the Json object.
+ *
+ * @return Returns an instance to itself. Sets an error code in the class if the
+ * object is not of type JsonType::object.
+ */
     template<typename T>
     JsonBase &set(const std::string &&x, T t) {
       interface_->insert(x,new JsonBase(t),last_error_);
@@ -987,40 +1067,104 @@ class JsonBase {
     }
 
 
+/**
+ * @brief Tries to insert a new (key,const char *) pair. This overload is
+ * provided to distinguish between bool and const char* as casting to bool is
+ * nearer than casting to const char*
+ *
+ * @param x The key of the inserted pair
+ * @param str The value of the inserted pair, will get inserted as
+ * JsonType::string.
+ *
+ * @return Returns this instance for easier function chaining.
+ */
     JsonBase &set(const std::string &&x, const char *str) {
       interface_->insert(x,new JsonBase(std::string(str)),last_error_);
       return *this;
     }
 
+
+/**
+ * @brief Tries to insert a new (key,JsonBase*) pair into a json object. The
+ * function sets an error code when the object is not of type json object.
+ *
+ * @param x The key to insert into the JsonObject.
+ * @param js The Interface to insert into the JsonObject.
+ *
+ * @return Returns an instance of itself for easier function chaining.
+ */
     JsonBase &set(const std::string &&x, JsonBase *js) {
       interface_->insert(x,js,last_error_);
       return *this;
     }
 
+/**
+ * @brief Tries to insert a new value into the json array. Sets an error code if
+ * the JsonBase is not of type JsonType::array
+ *
+ * @tparam T The type to insert into the json object. Every type is insertable
+ * which can be constructed by JsonBase(T);
+ * @param t The value to call the constructor with.
+ *
+ * @return An instance of itself for easier function chaining
+ */
     template<typename T>
     JsonBase &push_back(T t) {
       interface_->insert("",new JsonBase(t),last_error_);
       return *this;
     }
 
+/**
+ * @brief Tries to insert a string into the json array. If the JsonBase is not
+ * of type JsonType::array then an error code is set.
+ *
+ * @param str The string to insert into the array.
+ *
+ * @return Returns an instance to itself for easier function chaining
+ */
     JsonBase &push_back(const char *str) {
       interface_->insert("",new JsonBase(std::string(str)),last_error_);
       return *this;
     }
 
+/**
+ * @brief Inserts an interface into the json array. An error code is set if the
+ * underlying type is not JsonType::array.
+ *
+ * @param js The interface to include into the json array.
+ *
+ * @return Returns an instance to itself for easier function chaining.
+ */
     JsonBase &push_back(JsonBase *js) {
       interface_->insert("",js,last_error_);
       return *this;
     }
 
+/**
+ * @brief Sets the internal error state to the given error code. If there is
+ * already an error code set this function will just silently overwrite it.
+ *
+ * @param err The error code to set the last_error to.
+ */
     void set_error(JsonError err) {
       last_error_ = err;
     }
 
+/**
+ * @brief Checks if there was an illegal call or cast using this instance.
+ *
+ * @return True if there happened an illegal action.
+ */
     bool has_error() {
       return last_error_ != JsonError::ok;
     }
 
+/**
+ * @brief Calls the callback function if there was an illegal operation or an
+ * error in this instance.
+ *
+ * @param func The function to call when there is an error inside.
+ */
     void error(std::function<void(JsonError)> func) {
       if (last_error_ != JsonError::ok) {
         func(last_error_);
@@ -1028,7 +1172,15 @@ class JsonBase {
       }
     }
 
+/**
+ * @brief The JsonParser used to parse large json strings.
+ */
     struct JsonParser {
+
+
+      /**
+       * @brief Possible json parse errors while parsing.
+       */
       enum class JsonParserError {
         ok,
         expected_comma_before_next_attribute,
@@ -1041,30 +1193,62 @@ class JsonBase {
         expected_int_or_double,
       };
       
-      int abs_pos_;
-      JsonParserError error_;
-      std::string_view underlying_json_;
+      int abs_pos_;   ///< The current absolute position in the underlying_json_ string view.
+      JsonParserError error_;   ///< The current state, everything other than JsonParserError::ok means abort parsing.
+      std::string_view underlying_json_;  ///< The json to parse.
 
+      
+      /**
+       * @brief Parses the given json starting at startpos
+       *
+       * @param view The string to parse, using a string view to save
+       * ressources.
+       * @param startpos The starting position.
+       */
       JsonParser(std::string_view view,int startpos=0) {
         underlying_json_ = view;
         abs_pos_ = startpos;
+        // No error at the beginning
         error_ = JsonParserError::ok;
       }
 
+      /**
+       * @brief Checks if there has been a parse error.
+       *
+       * @return True if there has been a parse error false otherwise.
+       */
       bool parse_error() {
         return error_ != JsonParserError::ok;
       }
 
+      /**
+       * @brief Sets the current parse error to the given value.
+       *
+       * @param err Sets the parse error to the given parse error.
+       */
       void set_error(JsonParserError err) {
         error_ = err;
       }
 
+      /**
+       * @brief Tries to find the error by taking a substr arround the last
+       * parsed position to show the user the error.
+       *
+       * @param dist The distance in both directions to cut out of the json.
+       *
+       * @return The substr arround the parse error to show the user the error.
+       */
       std::string get_error_surroundings(int dist) {
         int start = (abs_pos_-dist<0)?0:abs_pos_-dist;
         int end = (abs_pos_+dist>=underlying_json_.length())?underlying_json_.length():abs_pos_+dist;
         return std::string(underlying_json_.substr(start,end-start));
       }
 
+      /**
+       * @brief Converts the given parse error into a string
+       *
+       * @return The string version of the error code.
+       */
       std::string get_error_string() {
         switch(error_) {
           case JsonParserError::ok:
@@ -1089,73 +1273,122 @@ class JsonBase {
         return "Unknown error.";
       }
 
+      /**
+       * @brief Parses an json object therefore exepects a specific type
+       *
+       * @return Returns the created json object
+       */
       JsonBase *parse_object() {
         //Skip the first character which we know is {
         ++abs_pos_;
 
         std::string key;
+        // We always return a valid object!
         JsonBase *object = new JsonBase();
+
+        //No comma expected yet first we need a key.
         bool expect_comma = false;
 
         for (;abs_pos_ < underlying_json_.length(); abs_pos_++) {
+          //Skip all trailing characters as we are not in a string this can be
+          //skipped safely
           if (underlying_json_[abs_pos_] == ' ' || underlying_json_[abs_pos_] == '\t' || underlying_json_[abs_pos_] == '\n')
             continue;
+          // Check the finish tag if we find this the object is finished.
           else if (underlying_json_[abs_pos_] == '}')
             break;
+
+          // Check the comma, if there is one the next (key,value) pair can
+          // start.
           else if (underlying_json_[abs_pos_] == ',') {
+            // Ok we did not have (key,value) pair before , set error and exit
             if (!expect_comma) {
               set_error(JsonParserError::expected_attribute_but_got_comma);
               break;
             }
+            //Ok we just got a comma, we dont expect another one yet.
             expect_comma = false;
           }
+          // No key yet? Expect JsonString then.
           else if (key.length() == 0) {
+
+            // If we expect a comma now there is a missing comma between
+            // (key,value) and (key1,value1)
             if (expect_comma) {
               set_error(JsonParserError::expected_comma_before_next_attribute);
               break;
             }
 
+            //Parse the next json should be a string.
             JsonBase *json_key = parse();
 
+            // Write the string into key by moving it.
             json_key->map_string([&key](std::string x){key = std::move(x);});
+            // Delete the json_key we dont need it no more.
             delete json_key;
+            // Empty keys are invalid in the Json standard.
             if (key == "")
               set_error(JsonParserError::expected_string_attribute_key);
           }
           else {
+            // Ok we have a key already expect a double colon now. The first if
+            // should filter all filling characters therefore the next one needs
+            // to be a double colon.
             if (underlying_json_[abs_pos_++]!=':') {
               set_error(JsonParserError::expected_colon_but_got_different_character_instead);
               break;
             }
 
+            // Parse the value either string, null ....
             JsonBase *json_item = parse();
+            // Set the object in the objects.
             object->set(std::move(key),json_item);
+
+            //Reset keys and expect comma next.
             key = "";
             expect_comma = true;
           }
 
+          // Check if there was an error if so no need to go on.
           if(error_ != JsonParserError::ok)
             break;
         }
         return object;
       }
 
+      /**
+       * @brief Skips all filling characters in the underlying json must not be
+       * called from inside json string!
+       */
       void skip_whitespace_tab_newline() {
         while(underlying_json_[abs_pos_]==' ' || underlying_json_[abs_pos_] == '\t' || underlying_json_[abs_pos_] == '\n')
           ++abs_pos_;
       }
 
+      /**
+       * @brief Parses an json array and returns them. Always returns a value !=
+       * nullptr
+       *
+       * @return Returns the parsed json array.
+       */
       JsonBase *parse_array() {
         //Skip the first character which we know is [
         ++abs_pos_;
 
+        //Always return a value != nullptr.
         JsonBase *array = new JsonBase(new JsonImplArray());
+
+        // No comma is expected yet.
         bool expect_comma = false;
 
         for (;abs_pos_< underlying_json_.length(); abs_pos_++) {
+          // Skip all filling characters.
           skip_whitespace_tab_newline();
+          // We are finished on the closing character.
           if (underlying_json_[abs_pos_] == ']')
             break;
+          // If there is an comma set the expected comma or error depending on
+          // the expected value.
           else if (underlying_json_[abs_pos_] == ',') {
             if (!expect_comma) {
               set_error(JsonParserError::expected_comma_before_next_array_item);
@@ -1164,6 +1397,7 @@ class JsonBase {
             expect_comma = false;
           }
           else {
+            // Parse the item and add it to the array.
             JsonBase *json_item = parse();
             array->push_back(json_item);
             expect_comma = true;
@@ -1175,40 +1409,60 @@ class JsonBase {
         return array;
       }
 
+      /**
+       * @brief Parses the next json string
+       *
+       * @return The parsed json string.
+       */
       JsonBase *parse_string() {
         //Skip the first character which we know is "
         ++abs_pos_;
         std::string the_content;
 
         for (;abs_pos_< underlying_json_.length(); abs_pos_++) {
+          // Add everything into the JsonBase as long as there are characters
+          // and no closing characters skip all \" and \\" characters.
           if (underlying_json_[abs_pos_] == '"' && underlying_json_[abs_pos_-1] != '\\') {
             return new JsonBase(std::move(the_content));
           }
           the_content+=underlying_json_[abs_pos_];
         }
+        //Something went wrong no closing quote until json end.
         set_error(JsonParserError::expected_closing_quote_but_got_eos);
         return new JsonBase(std::move(the_content));
       }
 
+
+      /**
+       * @brief Parses either an json integer or an json double
+       *
+       * @return 
+       */
       JsonBase *parse_integer_or_double() {
         //Skip the first character which we know is "
         int beginning = abs_pos_;
         bool is_float = false;
 
         for (;abs_pos_< underlying_json_.length(); abs_pos_++) {
+          //Check the sign flag, is not needed as strtod will check it as well
           if (underlying_json_[abs_pos_] == '-') {
           }
+          // Is floating point?
           else if(underlying_json_[abs_pos_] == '.')
             is_float = true;
+          // Check the end of the integer or double
           else if (underlying_json_[abs_pos_] > '9' || underlying_json_[abs_pos_] < '0') {
             break;
           }
         }
+        // The end should be the last valid character
         --abs_pos_;
         
         const char *start = &underlying_json_[beginning];
         char *end;
         JsonInterface *impl;
+
+        // Cast the given string to int or double
         if (is_float) {
           double val = strtod(start,&end);
           impl = new JsonImplDouble(val);
@@ -1218,11 +1472,17 @@ class JsonBase {
           impl = new JsonImplInteger(val);
         }
 
+        //Cast error
         if (start == end)
           set_error(JsonParserError::expected_int_or_double);
         return new JsonBase(impl);
       }
 
+      /**
+       * @brief Parse boolean value.
+       *
+       * @return Returns the created JsonBase bool object.
+       */
       JsonBase *parse_boolean() {
         bool value;
 
@@ -1237,6 +1497,11 @@ class JsonBase {
         return new JsonBase(value);
       }
 
+      /**
+       * @brief Check the json null value.
+       *
+       * @return Returns the created JsonBase null object.
+       */
       JsonBase *parse_null() {
         if(std::string_view(&underlying_json_[abs_pos_],4) != "null")
           set_error(JsonParserError::expected_beginning_of_string_int_object_or_array_null_float);
@@ -1245,6 +1510,11 @@ class JsonBase {
       }
 
 
+      /**
+       * @brief Parses a json.
+       *
+       * @return The parsed in DOM format.
+       */
       JsonBase *parse() {
         JsonBase *inter = nullptr;
 
@@ -1255,6 +1525,7 @@ class JsonBase {
             break;
         }
 
+        // Check the type of the comming object.
         switch (underlying_json_[abs_pos_]) {
           case '{':
             inter = parse_object();
@@ -1284,6 +1555,15 @@ class JsonBase {
       }
     };
 
+
+      /**
+       * @brief Parses any json string into a JSON DOM object
+       *
+       * @param view The json string to parse
+       * @param on_error The callback to call when there is an error.
+       *
+       * @return Returns the parsed json in dom format.
+       */
     static JsonBase parse(std::string_view view,std::function<void(JsonParser&)> on_error) {
       JsonParser parser(view);
       auto result = parser.parse();
@@ -1304,6 +1584,7 @@ class JsonBase {
     JsonError last_error_;      ///< This variable stores the last error that happended to enable error callbacks and function style assignments
 };
 
+///< Setting the type to the json can be used like this Json b;
 using Json = JsonBase<JsonLogLevel::none,JsonStdoutColoredFunctor>;
 
 
